@@ -19,8 +19,8 @@ export default function AvatarSelector({ selectedAvatar, onSelectAvatar }: Avata
   // Sample avatar options - in a real app, these would come from your available models
   const avatarOptions: AvatarOption[] = [
     {
-      id: "default",
-      name: "Default Avatar",
+      id: "peach",
+      name: "Peach Avatar",
       thumbnail: "/placeholder.svg?height=100&width=100",
     },
     {

@@ -19,7 +19,7 @@ export async function GET() {
   
   if (!settings) {
     return NextResponse.json({
-      selectedAvatar: "default",
+      selectedAvatar: "peach",
       selectedVoice: "default",
       flowiseApiUrl: "",
       // Do not return API key to frontend

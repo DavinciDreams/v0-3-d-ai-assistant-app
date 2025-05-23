@@ -28,13 +28,18 @@ export default function Home() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [userInput, setUserInput] = useState("")
-  const [selectedAvatar, setSelectedAvatar] = useState("default")
+  // Call all hooks at the top level, before any conditional returns
+  const { messages, sendMessage, startNewChat, saveChat, downloadChatHistory } = useChat()
+  const { speak, stopSpeaking, startListening, stopListening, transcript } = useSpeech()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [selectedAvatar, setSelectedAvatar] = useState("peach")
   const [selectedVoice, setSelectedVoice] = useState("default")
   const [settings, setSettings] = useState({
     flowiseApiUrl: "",
     flowiseApiKey: "",
   })
   
+  // All useEffect hooks must be at the top level, before any conditional returns
   // Redirect if not authenticated
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -42,24 +47,6 @@ export default function Home() {
     }
   }, [status, router])
   
-  // Show loading state while checking auth
-  if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h3 className="text-lg font-medium">Loading...</h3>
-        </div>
-      </div>
-    )
-  }
-
-  const { messages, sendMessage, startNewChat, saveChat, downloadChatHistory } = useChat()
-
-  const { speak, stopSpeaking, startListening, stopListening, transcript } = useSpeech()
-
-  // Reference to the latest message for auto-scrolling
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
   // Handle speech recognition results
   useEffect(() => {
     if (transcript) {
@@ -97,6 +84,17 @@ export default function Home() {
       loadSettings()
     }
   }, [session])
+  
+  // Show loading state while checking auth
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h3 className="text-lg font-medium">Loading...</h3>
+        </div>
+      </div>
+    )
+  }
 
   const handleSendMessage = async () => {
     if (!userInput.trim()) return
