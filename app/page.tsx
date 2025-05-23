@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Canvas } from "@react-three/fiber"
 import { Environment, OrbitControls } from "@react-three/drei"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Download, Mic, MicOff, Send, Plus, Save, Volume2, VolumeX } from "lucide-react"
+import { Download, Mic, MicOff, Send, Plus, Save, Volume2, VolumeX, User, LogOut } from "lucide-react"
 import VRMAvatar from "@/components/vrm-avatar"
 import ChatHistory from "@/components/chat-history"
 import ContentDisplay from "@/components/content-display"
@@ -14,14 +16,42 @@ import AvatarSelector from "@/components/avatar-selector"
 import VoiceSelector from "@/components/voice-selector"
 import { useChat } from "@/hooks/use-chat"
 import { useSpeech } from "@/hooks/use-speech"
+import { signOut } from "next-auth/react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Home() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const { toast } = useToast()
+  
   const [activeTab, setActiveTab] = useState("chat")
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [userInput, setUserInput] = useState("")
   const [selectedAvatar, setSelectedAvatar] = useState("default")
   const [selectedVoice, setSelectedVoice] = useState("default")
+  const [settings, setSettings] = useState({
+    flowiseApiUrl: "",
+    flowiseApiKey: "",
+  })
+  
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
+  
+  // Show loading state while checking auth
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h3 className="text-lg font-medium">Loading...</h3>
+        </div>
+      </div>
+    )
+  }
 
   const { messages, sendMessage, startNewChat, saveChat, downloadChatHistory } = useChat()
 
@@ -41,6 +71,32 @@ export default function Home() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+  
+  // Load user settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await fetch("/api/settings")
+        if (res.ok) {
+          const data = await res.json()
+          setSettings({
+            flowiseApiUrl: data.flowiseApiUrl || "",
+            flowiseApiKey: "", // API key is not returned from backend
+          })
+          
+          // Update avatar and voice selection
+          if (data.selectedAvatar) setSelectedAvatar(data.selectedAvatar)
+          if (data.selectedVoice) setSelectedVoice(data.selectedVoice)
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err)
+      }
+    }
+    
+    if (session?.user) {
+      loadSettings()
+    }
+  }, [session])
 
   const handleSendMessage = async () => {
     if (!userInput.trim()) return
@@ -71,6 +127,42 @@ export default function Home() {
     if (isSpeaking) {
       stopSpeaking()
       setIsSpeaking(false)
+    }
+  }
+  
+  // Save user settings
+  const saveSettings = async () => {
+    try {
+      // Save avatar and voice preferences
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          selectedAvatar,
+          selectedVoice,
+          flowiseApiUrl: settings.flowiseApiUrl,
+          flowiseApiKey: settings.flowiseApiKey,
+        }),
+      })
+      
+      if (!res.ok) {
+        throw new Error("Failed to save settings")
+      }
+      
+      // Show success notification
+      toast({
+        title: "Settings saved",
+        description: "Your preferences have been updated successfully.",
+      })
+    } catch (err) {
+      console.error("Error saving settings:", err)
+      toast({
+        title: "Error",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -123,7 +215,20 @@ export default function Home() {
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
-            <div className="flex space-x-2">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center mr-4">
+                <User className="h-4 w-4 mr-1" />
+                <span className="text-sm font-medium">{session?.user?.name || session?.user?.email}</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="ml-1 h-6 w-6" 
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  title="Sign out"
+                >
+                  <LogOut className="h-3 w-3" />
+                </Button>
+              </div>
               <Button variant="outline" size="sm" onClick={startNewChat}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Chat
@@ -192,14 +297,22 @@ export default function Home() {
                         type="text"
                         placeholder="https://your-flowise-instance.com/api/v1"
                         className="w-full p-2 border rounded-md mt-1"
+                        value={settings?.flowiseApiUrl || ""}
+                        onChange={(e) => setSettings({ ...settings, flowiseApiUrl: e.target.value })}
                       />
                     </div>
                     <div>
                       <label className="text-sm font-medium">API Key (if required)</label>
-                      <input type="password" placeholder="Your API key" className="w-full p-2 border rounded-md mt-1" />
+                      <input 
+                        type="password" 
+                        placeholder="Your API key" 
+                        className="w-full p-2 border rounded-md mt-1"
+                        value={settings?.flowiseApiKey || ""}
+                        onChange={(e) => setSettings({ ...settings, flowiseApiKey: e.target.value })}
+                      />
                     </div>
                   </div>
-                  <Button>Connect to Flowise</Button>
+                  <Button onClick={saveSettings}>Save Flowise Settings</Button>
                 </div>
               </div>
             </div>
