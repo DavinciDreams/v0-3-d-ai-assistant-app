@@ -1,12 +1,20 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import EasySpeech from 'easy-speech';
 
 export function useSpeech() {
   const [transcript, setTranscript] = useState("")
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Initialize EasySpeech
+  useEffect(() => {
+    EasySpeech.init({ maxTimeout: 5000, interval: 250 })
+      .then(() => console.log('EasySpeech initialized'))
+      .catch(e => setError(`EasySpeech initialization error: ${e}`));
+  }, []);
 
   // Initialize speech recognition
   const recognition = useCallback(() => {
@@ -26,13 +34,16 @@ export function useSpeech() {
     return recognitionInstance
   }, [])
 
-  // Start listening for speech
+  // Start listening for speech with enhanced error handling and reconnection logic
   const startListening = useCallback(() => {
     setTranscript("")
     setError(null)
 
     const recognitionInstance = recognition()
     if (!recognitionInstance) return
+
+    let reconnectionAttempts = 0;
+    const maxReconnectionAttempts = 3;
 
     recognitionInstance.onstart = () => {
       setIsListening(true)
@@ -60,7 +71,18 @@ export function useSpeech() {
     }
 
     recognitionInstance.onend = () => {
-      setIsListening(false)
+      // Auto reconnect logic if recognition stopped unexpectedly
+      if (isListening && reconnectionAttempts < maxReconnectionAttempts) {
+        reconnectionAttempts++;
+        try {
+          recognitionInstance.start();
+        } catch (err) {
+          setError(`Failed to reconnect: ${err instanceof Error ? err.message : String(err)}`);
+          setIsListening(false);
+        }
+      } else {
+        setIsListening(false);
+      }
     }
 
     try {
@@ -71,7 +93,7 @@ export function useSpeech() {
     }
 
     return recognitionInstance
-  }, [recognition])
+  }, [recognition, isListening])
 
   // Stop listening for speech
   const stopListening = useCallback(() => {
@@ -82,73 +104,52 @@ export function useSpeech() {
     setIsListening(false)
   }, [recognition])
 
-  // Speak text using speech synthesis
+  // Speak text using EasySpeech
   const speak = useCallback(async (text: string, voiceId = "default") => {
-    if (!("speechSynthesis" in window)) {
-      setError("Speech synthesis is not supported in this browser.")
-      return
-    }
-
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel()
-
-    const utterance = new SpeechSynthesisUtterance(text)
-
-    // Set the voice if specified
-    if (voiceId !== "default") {
-      const voices = window.speechSynthesis.getVoices()
-      const selectedVoice = voices.find((voice) => voice.voiceURI === voiceId)
-      if (selectedVoice) {
-        utterance.voice = selectedVoice
-      }
-    }
-
-    // Set up event handlers
-    utterance.onstart = () => {
-      setIsSpeaking(true)
-    }
-
-    utterance.onend = () => {
-      setIsSpeaking(false)
-    }
-
-    utterance.onerror = (event) => {
-      setError(`Speech synthesis error: ${event.error}`)
-      setIsSpeaking(false)
-    }
-
-    // Speak the text
-    window.speechSynthesis.speak(utterance)
-
-    // Return a promise that resolves when speech is complete
-    return new Promise<void>((resolve, reject) => {
-      utterance.onend = () => {
-        setIsSpeaking(false)
-        resolve()
+    try {
+      setIsSpeaking(true);
+      
+      const voices = EasySpeech.voices();
+      let voice = voices.find(v => v.voiceURI === voiceId);
+      
+      if (!voice && voiceId !== "default") {
+        console.warn(`Voice ${voiceId} not found, using default`);
+        voice = voices[0];
       }
 
-      utterance.onerror = (event) => {
-        setError(`Speech synthesis error: ${event.error}`)
-        setIsSpeaking(false)
-        reject(new Error(`Speech synthesis error: ${event.error}`))
-      }
-    })
+      await EasySpeech.speak({
+        text,
+        voice,
+        pitch: 1,
+        rate: 1,
+        volume: 1,
+        // You can add callbacks for events
+        boundary: (event) => console.log('Boundary reached:', event),
+        end: () => setIsSpeaking(false),
+        error: (err) => {
+          setError(`Speech synthesis error: ${err}`);
+          setIsSpeaking(false);
+        }
+      });
+      
+      return Promise.resolve();
+    } catch (err) {
+      setError(`Speech synthesis error: ${err instanceof Error ? err.message : String(err)}`);
+      setIsSpeaking(false);
+      return Promise.reject(err);
+    }
   }, [])
 
   // Stop speaking
   const stopSpeaking = useCallback(() => {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
-    }
+    EasySpeech.cancel();
+    setIsSpeaking(false);
   }, [])
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel()
-      }
+      EasySpeech.cancel();
     }
   }, [])
 
