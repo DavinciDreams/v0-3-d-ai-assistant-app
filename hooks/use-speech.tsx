@@ -3,6 +3,14 @@
 import { useState, useCallback, useEffect } from "react"
 import EasySpeech from 'easy-speech';
 
+// Extend the Window interface for speech recognition types
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 export function useSpeech() {
   const [transcript, setTranscript] = useState("")
   const [isListening, setIsListening] = useState(false)
@@ -49,13 +57,16 @@ export function useSpeech() {
       setIsListening(true)
     }
 
-    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+    recognitionInstance.onresult = (event: Event) => {
       let interimTranscript = ""
       let finalTranscript = ""
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
+      // Type assertion to access SpeechRecognitionEvent properties
+      const speechEvent = event as any;
+
+      for (let i = speechEvent.resultIndex; i < speechEvent.results.length; i++) {
+        const transcript = speechEvent.results[i][0].transcript
+        if (speechEvent.results[i].isFinal) {
           finalTranscript += transcript
         } else {
           interimTranscript += transcript
@@ -65,7 +76,7 @@ export function useSpeech() {
       setTranscript(finalTranscript || interimTranscript)
     }
 
-    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognitionInstance.onerror = (event: any) => {
       setError(`Speech recognition error: ${event.error}`)
       setIsListening(false)
     }
