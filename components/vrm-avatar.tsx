@@ -4,29 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
-import { VRM } from "@pixiv/three-vrm"
+import { VRM, VRMLoaderPlugin } from "@pixiv/three-vrm"
 import { Box, Sphere, Text } from "@react-three/drei"
-
-// Define the BlendShapePresetName enum since it's no longer exported directly
-enum BlendShapePresetName {
-  A = "a",
-  Angry = "angry",
-  Blink = "blink",
-  BlinkL = "blink_l",
-  BlinkR = "blink_r",
-  E = "e",
-  Fun = "fun",
-  I = "i",
-  Joy = "joy",
-  Lookdown = "lookdown",
-  Lookleft = "lookleft",
-  Lookright = "lookright",
-  Lookup = "lookup",
-  Neutral = "neutral",
-  O = "o",
-  Sorrow = "sorrow",
-  U = "u",
-}
 
 interface VRMAvatarProps {
   modelPath: string
@@ -37,7 +16,6 @@ interface VRMAvatarProps {
 export default function VRMAvatar({ modelPath, isSpeaking, expression }: VRMAvatarProps) {
   const { scene } = useThree()
   const [vrm, setVrm] = useState<VRM | null>(null)
-  const [blendShapeWeights, setBlendShapeWeights] = useState<Record<string, number>>({})
   const [loadError, setLoadError] = useState<boolean>(false)
   const clock = useRef(new THREE.Clock())
 
@@ -50,6 +28,14 @@ export default function VRMAvatar({ modelPath, isSpeaking, expression }: VRMAvat
   useEffect(() => {
     // Reset error state when trying to load a new model
     setLoadError(false)
+    console.log("🔄 VRM Loading: Attempting to load VRM model from:", modelPath)
+
+    // Clean up previous VRM model if it exists
+    if (vrm) {
+      console.log("🧹 VRM Loading: Cleaning up previous VRM model")
+      scene.remove(vrm.scene)
+      setVrm(null)
+    }
 
     // Only attempt to load if we have a valid model path
     if (
@@ -61,108 +47,105 @@ export default function VRMAvatar({ modelPath, isSpeaking, expression }: VRMAvat
       modelPath === "/models/stylized.vrm"
     ) {
       const loader = new GLTFLoader()
+      
+      // Install VRM loader plugin
+      loader.register((parser: any) => {
+        return new VRMLoaderPlugin(parser)
+      })
+      
+      console.log("Valid model path detected, starting load...")
 
       loader.load(
         modelPath,
-        (gltf) => {
-          VRM.from(gltf)
-            .then((vrm) => {
-              // Clean up previous VRM model if it exists
-              if (vrm) {
-                scene.add(vrm.scene)
-                vrm.scene.position.set(0, 0, 0)
-                vrm.scene.rotation.set(0, Math.PI, 0) // Face the camera
-                vrm.scene.scale.set(1, 1, 1)
+        (gltf: any) => {
+          console.log("GLTF loaded successfully:", gltf)
+          try {
+            const vrmModel = gltf.userData.vrm
+            if (vrmModel) {
+              console.log("VRM processed successfully:", vrmModel)
+              
+              // Add to scene
+              scene.add(vrmModel.scene)
+              vrmModel.scene.position.set(0, 0, 0)
+              vrmModel.scene.rotation.set(0, 0, 0) // Don't rotate - let's see the front
+              vrmModel.scene.scale.set(1, 1, 1)
 
-                // Initialize blend shape weights
-                const initialWeights: Record<string, number> = {}
-                if (vrm.blendShapeProxy) {
-                  Object.values(BlendShapePresetName).forEach((presetName) => {
-                    initialWeights[presetName] = 0.0
-                  })
-                }
-
-                setBlendShapeWeights(initialWeights)
-                setVrm(vrm)
-              }
-            })
-            .catch((error) => {
-              console.error("Error processing VRM:", error)
+              setVrm(vrmModel)
+              console.log("VRM avatar loaded and set up successfully")
+            } else {
+              console.error("No VRM data found in GLTF")
               setLoadError(true)
-            })
+            }
+          } catch (syncError) {
+            console.error("Synchronous error in VRM processing:", syncError)
+            setLoadError(true)
+          }
         },
-        (progress) => console.log("Loading model...", (progress.loaded / progress.total) * 100, "%"),
-        (error) => {
+        (progress: any) => {
+          const percent = (progress.loaded / progress.total) * 100
+          console.log("Loading model...", Math.round(percent), "%")
+        },
+        (error: any) => {
           console.error("Error loading model:", error)
+          console.error("Model path that failed:", modelPath)
           setLoadError(true)
         },
       )
     } else {
       // If we don't have a valid model path, set the error state
+      console.error("Invalid model path:", modelPath)
       setLoadError(true)
     }
 
     return () => {
-      if (vrm) {
-        scene.remove(vrm.scene)
-        vrm.dispose()
-      }
+      // Cleanup is handled above in the effect
     }
   }, [modelPath, scene])
 
-  // Handle facial expressions based on speaking state and message content
-  useEffect(() => {
-    if (!vrm || !vrm.blendShapeProxy) return
-
-    const newWeights = { ...blendShapeWeights }
-
-    // Reset all expressions
-    Object.keys(newWeights).forEach((key) => {
-      newWeights[key] = 0.0
-    })
-
-    // Set expressions based on speaking state and message content
-    if (isSpeaking) {
-      // Basic talking expression
-      newWeights[BlendShapePresetName.A] = Math.random() * 0.5 + 0.2
-
-      // Analyze expression from the message content
-      if (expression) {
-        if (expression.includes("?")) {
-          newWeights[BlendShapePresetName.Angry] = 0.3
-        } else if (expression.includes("!")) {
-          newWeights[BlendShapePresetName.Angry] = 0.2
-        } else if (/happy|glad|joy|smile/i.test(expression)) {
-          newWeights[BlendShapePresetName.Joy] = 0.5
-        } else if (/sad|sorry|unfortunate/i.test(expression)) {
-          newWeights[BlendShapePresetName.Sorrow] = 0.5
-        }
-      }
-    } else {
-      // Idle expression - occasional blinking
-      if (Math.random() < 0.01) {
-        newWeights[BlendShapePresetName.Blink] = 1.0
-      }
-
-      // Subtle mouth movements
-      if (Math.random() < 0.05) {
-        newWeights[BlendShapePresetName.A] = Math.random() * 0.1
-      }
-    }
-
-    setBlendShapeWeights(newWeights)
-  }, [vrm, isSpeaking, expression, blendShapeWeights])
-
-  // Apply blend shape weights in animation frame or animate fallback avatar
+  // Apply animations in animation frame or animate fallback avatar
   useFrame((state) => {
-    // If we have a VRM model, update its blend shapes
-    if (vrm && vrm.blendShapeProxy) {
+    // If we have a VRM model, update it
+    if (vrm) {
       const deltaTime = clock.current.getDelta()
 
-      // Apply all blend shape weights
-      Object.entries(blendShapeWeights).forEach(([presetName, weight]) => {
-        vrm.blendShapeProxy?.setValue(presetName as BlendShapePresetName, weight)
-      })
+      // Simple expression animations based on speaking state
+      if (vrm.expressionManager && isSpeaking) {
+        try {
+          // Basic talking expression - mouth opening
+          const talkingAmount = Math.sin(state.clock.getElapsedTime() * 10) * 0.3 + 0.3
+          vrm.expressionManager.setValue('aa', Math.max(0, talkingAmount))
+          
+          // Occasional blinking
+          if (Math.random() < 0.01) {
+            vrm.expressionManager.setValue('blink', 1.0)
+            setTimeout(() => {
+              if (vrm && vrm.expressionManager) {
+                vrm.expressionManager.setValue('blink', 0.0)
+              }
+            }, 150)
+          }
+        } catch (e) {
+          // Ignore expression errors
+          console.warn("Expression error:", e)
+        }
+      } else if (vrm.expressionManager) {
+        // Reset expressions when not speaking
+        try {
+          vrm.expressionManager.setValue('aa', 0)
+          // Occasional blinking when not speaking
+          if (Math.random() < 0.005) {
+            vrm.expressionManager.setValue('blink', 1.0)
+            setTimeout(() => {
+              if (vrm && vrm.expressionManager) {
+                vrm.expressionManager.setValue('blink', 0.0)
+              }
+            }, 150)
+          }
+        } catch (e) {
+          // Ignore expression errors
+          console.warn("Expression error:", e)
+        }
+      }
 
       // Update VRM
       vrm.update(deltaTime)
