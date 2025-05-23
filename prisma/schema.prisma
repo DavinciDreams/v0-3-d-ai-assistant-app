@@ -82,7 +82,7 @@ model Message {
 model Settings {
   id                String  @id @default(cuid())
   userId            String  @unique
-  selectedAvatar    String  @default("default")
+  selectedAvatar    String  @default("peach")
   selectedVoice     String  @default("default")
   flowiseApiUrl     String?
   flowiseApiKey     String?
