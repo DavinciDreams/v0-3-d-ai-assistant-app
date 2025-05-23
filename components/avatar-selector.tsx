@@ -24,6 +24,11 @@ export default function AvatarSelector({ selectedAvatar, onSelectAvatar }: Avata
       thumbnail: "/placeholder.svg?height=100&width=100",
     },
     {
+      id: "Billy",
+      name: "Billy Avatar",
+      thumbnail: "/placeholder.svg?height=100&width=100",
+    },
+    {
       id: "anime",
       name: "Anime Style",
       thumbnail: "/placeholder.svg?height=100&width=100",
@@ -31,11 +36,6 @@ export default function AvatarSelector({ selectedAvatar, onSelectAvatar }: Avata
     {
       id: "realistic",
       name: "Realistic",
-      thumbnail: "/placeholder.svg?height=100&width=100",
-    },
-    {
-      id: "stylized",
-      name: "Stylized",
       thumbnail: "/placeholder.svg?height=100&width=100",
     },
   ]

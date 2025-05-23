@@ -53,6 +53,8 @@ export default function VRMAvatar({ modelPath, isSpeaking, expression }: VRMAvat
 
     // Only attempt to load if we have a valid model path
     if (
+      modelPath === "/models/peach.vrm" ||
+      modelPath === "/models/Billy.vrm" ||
       modelPath === "/models/default.vrm" ||
       modelPath === "/models/anime.vrm" ||
       modelPath === "/models/realistic.vrm" ||
