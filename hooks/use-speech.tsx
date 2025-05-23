@@ -16,12 +16,19 @@ export function useSpeech() {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isEasySpeechInitialized, setIsEasySpeechInitialized] = useState(false)
 
   // Initialize EasySpeech
   useEffect(() => {
     EasySpeech.init({ maxTimeout: 5000, interval: 250 })
-      .then(() => console.log('EasySpeech initialized'))
-      .catch(e => setError(`EasySpeech initialization error: ${e}`));
+      .then(() => {
+        console.log('EasySpeech initialized')
+        setIsEasySpeechInitialized(true)
+      })
+      .catch(e => {
+        console.error('EasySpeech initialization error:', e)
+        setError(`EasySpeech initialization error: ${e}`)
+      });
   }, []);
 
   // Initialize speech recognition
@@ -117,6 +124,11 @@ export function useSpeech() {
 
   // Speak text using EasySpeech
   const speak = useCallback(async (text: string, voiceId = "default") => {
+    if (!isEasySpeechInitialized) {
+      console.warn('EasySpeech not initialized yet')
+      return
+    }
+
     try {
       setIsSpeaking(true);
       
@@ -149,20 +161,24 @@ export function useSpeech() {
       setIsSpeaking(false);
       return Promise.reject(err);
     }
-  }, [])
+  }, [isEasySpeechInitialized])
 
   // Stop speaking
   const stopSpeaking = useCallback(() => {
-    EasySpeech.cancel();
+    if (isEasySpeechInitialized) {
+      EasySpeech.cancel();
+    }
     setIsSpeaking(false);
-  }, [])
+  }, [isEasySpeechInitialized])
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      EasySpeech.cancel();
+      if (isEasySpeechInitialized) {
+        EasySpeech.cancel();
+      }
     }
-  }, [])
+  }, [isEasySpeechInitialized])
 
   return {
     transcript,
