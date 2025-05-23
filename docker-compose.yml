@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai_assistant_db?schema=public
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-local-development-secret-key
+      - ENCRYPTION_KEY=a0e69b38cf79dfc719b20c8c35133945c5216f396cd764d75b71891a5b73
+    depends_on:
+      - db
+    volumes:
+      - ./public:/app/public
+      - ./.env:/app/.env
+
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_assistant_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
