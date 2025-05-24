@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -84,7 +84,7 @@ model Settings {
   userId            String  @unique
   selectedAvatar    String  @default("peach")
   selectedVoice     String  @default("default")
-  flowiseApiUrl     String? @default(env("NEXT_PUBLIC_FLOWISE_API_URL"))
-  flowiseApiKey     String? @default(env("NEXT_PUBLIC_FLOWISE_API_KEY"))
+  flowiseApiUrl     String?
+  flowiseApiKey     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
