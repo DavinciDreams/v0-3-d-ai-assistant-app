@@ -20,8 +20,8 @@ export function useChat() {
   
   // Load settings on mount
   const [settings, setSettings] = useState({
-    flowiseApiUrl: "",
-    flowiseApiKey: "",
+    flowiseApiUrl: process.env.NEXT_PUBLIC_FLOWISE_API_URL || "",
+    flowiseApiKey: process.env.NEXT_PUBLIC_FLOWISE_API_KEY || "",
   })
   
   useEffect(() => {
@@ -30,10 +30,10 @@ export function useChat() {
         const res = await fetch("/api/settings")
         if (res.ok) {
           const data = await res.json()
-          setSettings({
-            flowiseApiUrl: data.flowiseApiUrl || "",
-            flowiseApiKey: "", // API key is not returned from backend
-          })
+          setSettings((prevSettings) => ({
+            ...prevSettings,
+            flowiseApiUrl: data.flowiseApiUrl || prevSettings.flowiseApiUrl,
+          }))
         }
       } catch (err) {
         console.error("Failed to load settings:", err)
@@ -81,55 +81,12 @@ export function useChat() {
     }
     
     if (!settings.flowiseApiUrl) {
-      // Fallback to mock data if no Flowise API URL is configured
-      try {
-        setIsLoading(true)
-        setError(null)
-        
-        // Add user message
-        const userMessage: Message = {
-          role: "user",
-          content,
-          timestamp: new Date(),
-        }
-        
-        setMessages((prev) => [...prev, userMessage])
-        
-        // Mock response with a delay
-        const mockResponse = await new Promise<string>((resolve) => {
-          setTimeout(() => {
-            const responses = [
-              "I understand what you're asking. Let me help you with that.",
-              "That's an interesting question! Here's what I think...",
-              "Based on my knowledge, I can provide the following information.",
-              "I'd be happy to assist with your request.",
-              "Let me analyze that for you and provide some insights.",
-              "Please set up your Flowise API in settings for full functionality.",
-            ]
-            resolve(responses[Math.floor(Math.random() * responses.length)])
-          }, 1000)
-        })
-        
-        // Add assistant response
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: mockResponse,
-          timestamp: new Date(),
-        }
-        
-        setMessages((prev) => [...prev, assistantMessage])
-        
-        toast({
-          title: "Using Mock Data",
-          description: "Please set up your Flowise API URL in settings for real AI responses",
-        })
-        
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An unknown error occurred")
-      } finally {
-        setIsLoading(false)
-      }
-      return
+      toast({
+        title: "Configuration Missing",
+        description: "Please set up your Flowise API URL in settings for full functionality.",
+        variant: "destructive",
+      });
+      return;
     }
     
     try {

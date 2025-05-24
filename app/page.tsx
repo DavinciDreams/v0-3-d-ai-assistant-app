@@ -35,8 +35,8 @@ export default function Home() {
   const [selectedAvatar, setSelectedAvatar] = useState("peach")
   const [selectedVoice, setSelectedVoice] = useState("default")
   const [settings, setSettings] = useState({
-    flowiseApiUrl: "",
-    flowiseApiKey: "",
+    flowiseApiUrl: process.env.NEXT_PUBLIC_FLOWISE_API_URL || "",
+    flowiseApiKey: process.env.NEXT_PUBLIC_FLOWISE_API_KEY || "",
   })
   
   // All useEffect hooks must be at the top level, before any conditional returns
@@ -66,10 +66,10 @@ export default function Home() {
         const res = await fetch("/api/settings")
         if (res.ok) {
           const data = await res.json()
-          setSettings({
-            flowiseApiUrl: data.flowiseApiUrl || "",
-            flowiseApiKey: "", // API key is not returned from backend
-          })
+          setSettings((prevSettings) => ({
+            ...prevSettings,
+            flowiseApiUrl: data.flowiseApiUrl || prevSettings.flowiseApiUrl,
+          }))
           
           // Update avatar and voice selection
           if (data.selectedAvatar) setSelectedAvatar(data.selectedAvatar)

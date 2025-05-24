@@ -63,7 +63,11 @@ A production-ready 3D AI assistant web application featuring realistic avatars, 
 
 1. Install and set up Flowise AI on your server or use their cloud service
 2. Create a new flow in Flowise that processes conversation input and returns responses
-3. Once deployed, copy your Flowise API URL and API Key (if required)
+3. Once deployed, set the Flowise API URL and API Key as environment variables in your `.env` file:
+   ```env
+   NEXT_PUBLIC_FLOWISE_API_URL=https://your-flowise-instance.com/api/v1
+   NEXT_PUBLIC_FLOWISE_API_KEY=your-api-key
+   ```
 4. In the app settings, input your Flowise API details and save
 
 ## Production Deployment

@@ -84,7 +84,7 @@ model Settings {
   userId            String  @unique
   selectedAvatar    String  @default("peach")
   selectedVoice     String  @default("default")
-  flowiseApiUrl     String?
-  flowiseApiKey     String?
+  flowiseApiUrl     String? @default(env("NEXT_PUBLIC_FLOWISE_API_URL"))
+  flowiseApiKey     String? @default(env("NEXT_PUBLIC_FLOWISE_API_KEY"))
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
